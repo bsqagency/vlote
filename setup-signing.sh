@@ -37,24 +37,21 @@ fi
 security import "$TMP/id.p12" -k ~/Library/Keychains/login.keychain-db \
     -P "$PASS" -T /usr/bin/codesign
 
-# Signing works with an untrusted certificate, but TCC does NOT: it will not
-# honour a certificate-based designated requirement unless the certificate is
-# trusted, and silently falls back to the cdhash - which changes every build.
-# This step needs your password, so it is left for you to run.
-security find-certificate -c "$SIGN_ID" -p > "$TMP/cert.pem"
-
 cat <<MSG
 
 Created '$SIGN_ID'.
 
-ONE MORE STEP - run this yourself and approve the password prompt:
+Next: ./build.sh, then grant Accessibility once.
 
-    security find-certificate -c "$SIGN_ID" -p > /tmp/macnizer-cert.pem
-    security add-trusted-cert -r trustRoot -p codeSign /tmp/macnizer-cert.pem
-    rm /tmp/macnizer-cert.pem
+If macOS keeps asking for Accessibility even though the switch is already ON,
+the entry is stale - left over from an earlier ad-hoc signed build, which TCC
+identified by a hash that changes on every rebuild. Clear it and grant again:
 
-Without it the certificate stays untrusted, macOS ignores the stable signature,
-and Accessibility access is revoked on every rebuild.
+    tccutil reset Accessibility com.brandsquare.macnizer
 
-Then: ./build.sh, grant Accessibility once, and it will persist.
+Verified: with this identity the grant survives rebuilds, because the
+designated requirement becomes `identifier + certificate leaf` rather than a
+cdhash. Check with:
+
+    codesign -d -r- build/Macnizer.app
 MSG

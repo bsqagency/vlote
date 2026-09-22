@@ -113,10 +113,20 @@ designated => identifier "com.brandsquare.macnizer" and certificate leaf = H"3ed
 
 Both survive a rebuild, so permissions are granted once and stay granted.
 
-The certificate is deliberately **not** marked as trusted. `codesign` does not
-require trust to sign, and leaving trust settings alone means the setup runs
-without any authorisation prompt. Importing with `-T /usr/bin/codesign`
-pre-authorises signing, so builds never stop to ask for keychain access.
+The certificate is deliberately **not** marked as trusted, and does not need to
+be: TCC honours the certificate-leaf requirement regardless, which was confirmed
+by rebuilding and checking that the grant survived. Leaving trust settings alone
+means setup runs without any authorisation prompt, and importing with
+`-T /usr/bin/codesign` pre-authorises signing so builds never stop to ask for
+keychain access.
+
+**If macOS keeps prompting although the switch is already on**, the entry is
+stale - left from an earlier ad-hoc build, which TCC identified by a hash that
+changed every rebuild. Clear it and grant once more:
+
+```bash
+tccutil reset Accessibility com.brandsquare.macnizer
+```
 
 ## Tests
 

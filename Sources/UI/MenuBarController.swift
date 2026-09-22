@@ -11,11 +11,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "square.grid.3x3.topleft.filled",
-                                   accessibilityDescription: "Macnizer")
-            button.image?.isTemplate = true
             button.action = #selector(togglePopover)
             button.target = self
+            button.toolTip = "Macnizer"
         }
 
         popover.contentSize = NSSize(width: 400, height: 560)
@@ -27,10 +25,14 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         updateIcon()
     }
 
-    /// Dims the icon while arranging is paused, so the current mode is readable
-    /// at a glance without opening anything.
+    /// Swaps between the filled and outlined glyph so the current mode is
+    /// readable at a glance without opening anything.
     func updateIcon() {
-        statusItem?.button?.appearsDisabled = !Settings.shared.autoTile
+        guard let button = statusItem?.button else { return }
+        let active = Settings.shared.autoTile
+        button.image = StatusIcon.image(active: active)
+        button.image?.accessibilityDescription =
+            active ? "Macnizer, arranging" : "Macnizer, paused"
     }
 
     @objc func togglePopover() {
