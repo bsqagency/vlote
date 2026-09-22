@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>Macnizer</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.brandsquare.macnizer</string>
+    <key>CFBundleName</key>
+    <string>Macnizer</string>
+    <key>CFBundleDisplayName</key>
+    <string>Macnizer</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Macnizer reads the list of open tabs in your browsers so it can find duplicates, close tabs in bulk, and save sessions. It never reads page contents.</string>
+</dict>
+</plist>

@@ -1,0 +1,18 @@
+# Build output — regenerate with ./build.sh
+build/
+
+# Signing material must never be committed. setup-signing.sh recreates the
+# identity locally; the private key belongs in the login keychain only.
+*.pem
+*.p12
+*.key
+*.cer
+
+# macOS
+.DS_Store
+
+# Xcode / SwiftPM, in case either is used later
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
