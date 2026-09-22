@@ -16,3 +16,6 @@ build/
 DerivedData/
 *.xcuserstate
 xcuserdata/
+
+# Distributable DMGs
+dist/
