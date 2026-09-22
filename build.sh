@@ -53,11 +53,16 @@ echo "==> Assembling bundle"
 cp Resources/Info.plist "${BUNDLE}/Contents/Info.plist"
 if [[ -f Resources/Macnizer.icns ]]; then cp Resources/Macnizer.icns "${RES_DIR}/"; fi
 
-# Signing. Three modes, in priority order:
+# Signing, in priority order:
 #
-#   MACNIZER_DEVID=1  Developer ID + hardened runtime, for notarised release.
-#   MACNIZER_ADHOC=1  Ad-hoc, for an unsigned-but-runnable build.
-#   (default)         The local self-signed identity, for development.
+#   MACNIZER_ADHOC=1  Ad-hoc. Only for a DMG going to people who do not have
+#                     the Developer ID certificate story.
+#   Developer ID      Preferred whenever the certificate is installed, for
+#                     development as well as release. One identity everywhere
+#                     means the designated requirement never changes, so
+#                     permissions granted once stay granted.
+#   Self-signed       Fallback from before a real certificate existed.
+#   Ad-hoc            Last resort.
 #
 # Why the local identity matters: macOS ties Accessibility and Automation
 # grants to the code signature's designated requirement. An ad-hoc signature's
@@ -69,21 +74,16 @@ DEVID="$(security find-identity -v -p codesigning 2>/dev/null \
          | grep "Developer ID Application" | head -1 \
          | sed -E 's/.*"(.*)".*/\1/' || true)"
 
-if [[ "${MACNIZER_DEVID:-}" == "1" ]]; then
-    if [[ -z "$DEVID" ]]; then
-        echo "!!  MACNIZER_DEVID=1 but no Developer ID Application certificate found."
-        echo "    See 'Publishing' in README.md."
-        exit 1
-    fi
+if [[ "${MACNIZER_ADHOC:-}" == "1" ]]; then
+    echo "==> Signing ad-hoc"
+    codesign --force --deep --sign - "$BUNDLE" 2>/dev/null
+elif [[ -n "$DEVID" ]]; then
     echo "==> Signing with $DEVID (hardened runtime)"
     # --options runtime is required for notarisation; the entitlements restore
     # Apple Events, which the hardened runtime would otherwise block.
     codesign --force --deep --timestamp --options runtime \
              --entitlements Resources/Macnizer.entitlements \
              --sign "$DEVID" "$BUNDLE"
-elif [[ "${MACNIZER_ADHOC:-}" == "1" ]]; then
-    echo "==> Signing ad-hoc"
-    codesign --force --deep --sign - "$BUNDLE" 2>/dev/null
 elif security find-identity -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
     echo "==> Signing with local identity"
     codesign --force --deep --sign "$SIGN_ID" "$BUNDLE"

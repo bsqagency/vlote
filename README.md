@@ -24,14 +24,19 @@ Command Line Tools are enough.
 ## Setup
 
 ```bash
-./setup-signing.sh
 ./build.sh
 open build/Macnizer.app
 ```
 
-`setup-signing.sh` runs once and creates a self-signed code-signing identity in
-your login keychain. Without it the app is ad-hoc signed, and macOS revokes its
-permissions on every single rebuild — see *Why signing matters* below.
+If you have an Apple **Developer ID Application** certificate installed,
+`build.sh` uses it automatically — for development as well as release. That is
+the best case: one identity everywhere, a designated requirement that never
+changes, and permissions that stay granted across rebuilds.
+
+Without one, run `./setup-signing.sh` first. It creates a self-signed identity,
+which achieves the same permission stability locally. Failing both, the app is
+ad-hoc signed and macOS revokes its permissions on every single rebuild — see
+*Why signing matters* below.
 
 On first launch Macnizer asks for **Accessibility** access. This is not optional:
 macOS gives no other way to move another app's windows. Approve it under
@@ -211,6 +216,24 @@ changed every rebuild. Clear it and grant once more:
 ```bash
 tccutil reset Accessibility com.brandsquare.macnizer
 ```
+
+### If the certificate will not sign
+
+`security find-identity -v -p codesigning` reporting **0 valid identities**
+while the certificate is plainly there, and Keychain Access shows it paired with
+its private key, almost always means Apple's **intermediate CA** is missing, so
+the chain cannot reach the Apple root:
+
+```bash
+curl -fsSLO https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+security import DeveloperIDG2CA.cer -k ~/Library/Keychains/login.keychain-db
+```
+
+Two other traps when requesting the certificate: pick **Developer ID
+Application**, not iOS/Apple Distribution (those cannot sign a Mac app for
+distribution outside the store), and when double-clicking the downloaded `.cer`
+make sure the Keychain dropdown says **login**, not **iCloud** — otherwise the
+certificate and its private key land in different keychains and never pair.
 
 ## Tests
 
