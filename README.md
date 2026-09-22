@@ -4,7 +4,22 @@ A menu bar app that keeps your Mac tidy without being asked: it arranges every
 open window into a clean layout automatically, and gives you one place to see and
 cull the browser tabs piling up across Chrome, Brave, Edge, Arc, Vivaldi and Safari.
 
-Built for macOS 14+. No Xcode required — Command Line Tools are enough.
+Built for macOS 14+, universal (Apple Silicon and Intel). No Xcode required —
+Command Line Tools are enough.
+
+## Built with
+
+| | |
+|---|---|
+| **Swift 6** | The whole app. No third-party dependencies at all. |
+| **AppKit** | Menu bar item, popover, the drag-preview overlay window. |
+| **SwiftUI** | The panel UI, hosted inside an AppKit popover. |
+| **Accessibility API** (`AXUIElement`) | Reading and moving other apps' windows. The only supported way to do this on macOS, and why the app needs Accessibility permission. |
+| **Core Graphics window list** | Filtering to windows on the *current* Space. |
+| **Carbon** (`RegisterEventHotKey`) | Global hotkeys. Still the only way to get one without Input Monitoring permission. |
+| **AppleScript** (`NSAppleScript`) | Reading and closing browser tabs. |
+| **Core Graphics** | Drawing the app icon (`tools/make-icon.swift`) and the menu bar glyph (`StatusIcon.swift`). |
+| `swiftc`, `lipo`, `codesign`, `hdiutil`, `iconutil`, `notarytool` | Build and packaging. No Xcode project, no SwiftPM. |
 
 ## Setup
 
@@ -29,6 +44,75 @@ see page contents.
 
 To launch at login: System Settings › General › Login Items › **+**, and pick
 `build/Macnizer.app`.
+
+## Giving it to someone else
+
+```bash
+./package.sh            # ad-hoc: recipients must right-click > Open
+./package.sh --release  # Developer ID + notarised: opens with a double-click
+```
+
+Both produce `dist/Macnizer-1.0.dmg` — universal, with an Applications symlink
+and install notes.
+
+## Publishing
+
+With a paid Apple Developer account, `--release` removes the Gatekeeper warning
+entirely. Four one-time setup steps, then a single command forever after.
+
+**1. Create a Developer ID Application certificate.** Without Xcode, by hand:
+
+- Keychain Access › Certificate Assistant › *Request a Certificate From a
+  Certificate Authority*. Enter your email, choose **Saved to disk**.
+- At [developer.apple.com/account/resources/certificates/add](https://developer.apple.com/account/resources/certificates/add),
+  choose **Developer ID Application**, upload the request, download the `.cer`.
+- Double-click the `.cer` to install. Confirm with:
+
+  ```bash
+  security find-identity -v -p codesigning | grep "Developer ID"
+  ```
+
+**2. Create an app-specific password** at [appleid.apple.com](https://appleid.apple.com)
+› Sign-In and Security › App-Specific Passwords. Your normal Apple password will
+not work for notarisation.
+
+**3. Find your Team ID** — the 10-character code on your account's Membership page.
+
+**4. Store the notarisation credentials once.** Interactive, and deliberately not
+scripted here, so no credential ever touches this repository:
+
+```bash
+xcrun notarytool store-credentials "macnizer-notary" \
+    --apple-id you@example.com --team-id ABCDE12345 --password abcd-efgh-ijkl-mnop
+```
+
+Then `./package.sh --release` signs with your Developer ID and the hardened
+runtime, builds and signs the disk image, uploads it to Apple, waits for the
+scan, staples the ticket and verifies the result. Notarisation usually takes a
+few minutes. Stapling matters: it embeds the ticket so the app opens cleanly
+even on a Mac with no internet connection.
+
+### Entitlements
+
+The hardened runtime is mandatory for notarisation and blocks Apple Events by
+default — which would silently break the Tabs pane, since reading browser tabs
+goes through AppleScript. `Resources/Macnizer.entitlements` restores it with
+`com.apple.security.automation.apple-events`.
+
+Accessibility needs no entitlement; it is gated purely on the user's approval,
+so window tiling is unaffected either way.
+
+### What about the Mac App Store?
+
+A different and harder path, probably not worth it here. App Store apps must be
+sandboxed. Window management through the Accessibility API can work under the
+sandbox — Magnet and Moom ship that way — but **reading browser tabs over
+AppleScript effectively cannot**: it needs temporary-exception Apple Events
+entitlements that Apple grants sparingly. Shipping to the App Store would most
+likely mean dropping the Tabs feature.
+
+Direct distribution with Developer ID has none of those constraints, no review,
+and no revenue share.
 
 ## Using it
 
@@ -89,8 +173,8 @@ offers to ignore whichever app is frontmost.
 
 - **Not notarised.** Fine on this machine; distributing it to anyone else needs
   a real Apple Developer ID and notarisation.
-- **Apple Silicon only.** `build.sh` targets `arm64`. Add `-target
-  x86_64-apple-macosx14.0` and `lipo` the results for a universal binary.
+- **Not notarised unless you build with `--release`.** The default DMG needs a
+  right-click › Open on first launch.
 - **Arc's AppleScript support is partial** — tab listing works, closing individual
   tabs can be unreliable.
 
@@ -144,6 +228,7 @@ that the Cocoa↔Accessibility coordinate flip round-trips exactly.
 Sources/
   main.swift              Entry point; accessory (menu-bar-only) activation
   Core/
+    Diagnostics.swift     Status reporting to the log and the panel
     Geometry.swift        Cocoa <-> Accessibility coordinate conversion
     Settings.swift        UserDefaults-backed preferences
     Hotkeys.swift         Global shortcuts via the Carbon hot key API
@@ -160,6 +245,7 @@ Sources/
   UI/
     AppDelegate.swift     Lifecycle, permissions, hotkey wiring
     MenuBarController.swift
+    StatusIcon.swift      The menu bar glyph, drawn as a template image
     DropOverlay.swift     The highlight showing where a drop will land
     PanelView.swift       The SwiftUI panel
 ```
