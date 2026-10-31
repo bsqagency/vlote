@@ -371,6 +371,7 @@ struct PanelView: View {
             Menu {
                 Text("Toggle arranging  \(HotkeyManager.toggleAuto.label)")
                 Text("Next layout  \(HotkeyManager.cycleLayout.label)")
+                Text("Columns  \(HotkeyManager.columns.label)")
                 Text("Arrange now  \(HotkeyManager.retileNow.label)")
                 Divider()
                 Button("Reset to layout") { Tiler.shared.resetOrder() }

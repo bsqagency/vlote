@@ -92,6 +92,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hk.register(HotkeyManager.cycleLayout) {
             Tiler.shared.cycleLayout()
         }
+        hk.register(HotkeyManager.columns) {
+            Settings.shared.layout = .columns
+            Tiler.shared.applyPreset()
+        }
         hk.register(HotkeyManager.retileNow) {
             Tiler.shared.retile()
         }
