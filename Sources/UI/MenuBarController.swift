@@ -7,13 +7,17 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private let popover = NSPopover()
     private var monitor: Any?
 
+    /// Supplies the secondary (right-click) menu, e.g. Snaple's capture actions.
+    var secondaryMenu: (() -> NSMenu)?
+
     func install() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
             button.action = #selector(togglePopover)
             button.target = self
-            button.toolTip = "Macnizer"
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            button.toolTip = "vlote"
         }
 
         popover.contentSize = NSSize(width: 400, height: 560)
@@ -32,10 +36,22 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         let active = Settings.shared.autoTile
         button.image = StatusIcon.image(active: active)
         button.image?.accessibilityDescription =
-            active ? "Macnizer, arranging" : "Macnizer, paused"
+            active ? "vlote, arranging" : "vlote, paused"
+    }
+
+    /// Shows text next to the icon (used for the capture countdown). Empty hides it.
+    func setTitle(_ title: String) {
+        guard let button = statusItem?.button else { return }
+        button.title = title
+        button.imagePosition = title.isEmpty ? .imageOnly : .imageLeading
     }
 
     @objc func togglePopover() {
+        if NSApp.currentEvent?.type == .rightMouseUp, let menu = secondaryMenu?() {
+            if popover.isShown { popover.performClose(nil) }
+            statusItem.popUpMenu(menu)
+            return
+        }
         if popover.isShown {
             popover.performClose(nil)
         } else {

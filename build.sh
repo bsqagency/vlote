@@ -7,7 +7,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-APP_NAME="Macnizer"
+APP_NAME="vlote"
 BUNDLE="build/${APP_NAME}.app"
 MACOS_DIR="${BUNDLE}/Contents/MacOS"
 RES_DIR="${BUNDLE}/Contents/Resources"
@@ -20,12 +20,16 @@ SOURCES=(
     Sources/Windows/*.swift
     Sources/Tabs/*.swift
     Sources/UI/*.swift
+    Sources/Snaple/*/*.swift    # Snaple (screenshot) feature set, folder structure kept
+    Sources/FullPage/*.swift    # Full-page browser capture (scroll and stitch)
     Sources/main.swift          # must be last; swiftc treats it as the entry point
 )
 
 FRAMEWORKS=(
     -framework AppKit -framework SwiftUI -framework ApplicationServices
     -framework Carbon -framework Combine
+    -framework ScreenCaptureKit -framework Vision -framework ImageIO
+    -framework CoreImage -framework UniformTypeIdentifiers -framework Security
 )
 
 compile() {  # compile <arch> <output>

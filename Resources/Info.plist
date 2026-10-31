@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>Macnizer</string>
+    <string>vlote</string>
     <key>CFBundleIdentifier</key>
     <string>com.brandsquare.macnizer</string>
     <key>CFBundleName</key>
-    <string>Macnizer</string>
+    <string>vlote</string>
     <key>CFBundleDisplayName</key>
-    <string>Macnizer</string>
+    <string>vlote</string>
     <key>CFBundleIconFile</key>
     <string>Macnizer</string>
     <key>CFBundlePackageType</key>
@@ -26,5 +26,22 @@
     <true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>Macnizer reads the list of open tabs in your browsers so it can find duplicates, close tabs in bulk, and save sessions. It never reads page contents.</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>vlote captures your screen only when you ask it to. Captures stay on your Mac.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Used only when you record the screen with microphone narration turned on.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Used only when you record the screen with the webcam overlay turned on.</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>agency.bsq.snaple</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>snaple</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

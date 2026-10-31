@@ -4,6 +4,7 @@ enum PanelTab: String, CaseIterable {
     case windows = "Windows"
     case tabs = "Tabs"
     case sessions = "Sessions"
+    case capture = "Capture"
 }
 
 struct PanelView: View {
@@ -36,6 +37,7 @@ struct PanelView: View {
                 case .windows:  windowsPane
                 case .tabs:     tabsPane
                 case .sessions: sessionsPane
+                case .capture:  capturePane
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -63,7 +65,7 @@ struct PanelView: View {
                 .foregroundStyle(settings.autoTile ? Color.accentColor : .secondary)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("Macnizer").font(.system(size: 13, weight: .semibold))
+                Text("vlote").font(.system(size: 13, weight: .semibold))
                 Text(settings.autoTile ? "Arranging automatically" : "Paused")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
@@ -94,7 +96,7 @@ struct PanelView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Not arranging — needs Accessibility access")
                     .font(.system(size: 11, weight: .medium))
-                Text("Macnizer can see your windows but cannot move them.")
+                Text("vlote can see your windows but cannot move them.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
@@ -348,6 +350,71 @@ struct PanelView: View {
         }
     }
 
+    // MARK: - Capture
+
+    private var capturePane: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                section("Screenshot") {
+                    ForEach([HotkeyAction.area, .window, .fullscreen, .repeatLast, .ocr, .qr]) { action in
+                        captureRow(action.title, symbol: captureSymbol(action), shortcut: action.hotkey.displayString) {
+                            NotificationCenter.default.post(name: .snapleAction, object: nil,
+                                                            userInfo: ["action": action.rawValue])
+                        }
+                    }
+                    captureRow("Full Page", symbol: "arrow.up.and.down.text.horizontal",
+                               shortcut: FullPageController.shortcutLabel) {
+                        FullPageController.shared.start(fromPanel: true)
+                    }
+                }
+
+                section("Library & settings") {
+                    captureRow("Library…", symbol: "photo.on.rectangle", shortcut: nil) {
+                        NotificationCenter.default.post(name: .openSnapleLibrary, object: nil)
+                    }
+                    captureRow("Screenshot Settings…", symbol: "gearshape", shortcut: nil) {
+                        NotificationCenter.default.post(name: .openSnapleSettings, object: nil)
+                    }
+                }
+            }
+            .padding(14)
+        }
+    }
+
+    private func captureRow(_ title: String, symbol: String, shortcut: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: symbol)
+                    .font(.system(size: 13))
+                    .frame(width: 18)
+                    .foregroundStyle(.secondary)
+                Text(title).font(.system(size: 12))
+                Spacer(minLength: 4)
+                if let shortcut {
+                    Text(shortcut)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.07)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func captureSymbol(_ action: HotkeyAction) -> String {
+        switch action {
+        case .area: return "rectangle.dashed"
+        case .window: return "macwindow"
+        case .fullscreen: return "rectangle.inset.filled"
+        case .repeatLast: return "arrow.counterclockwise"
+        case .ocr: return "text.viewfinder"
+        case .qr: return "qrcode.viewfinder"
+        }
+    }
+
     // MARK: - Footer
 
     private var footer: some View {
@@ -377,7 +444,7 @@ struct PanelView: View {
                 Button("Reset to layout") { Tiler.shared.resetOrder() }
                 Button("Rescan tabs") { store.refresh() }
                 Divider()
-                Button("Quit Macnizer") { NSApp.terminate(nil) }
+                Button("Quit vlote") { NSApp.terminate(nil) }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }

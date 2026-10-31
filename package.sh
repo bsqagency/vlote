@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds a distributable Macnizer.dmg.
+# Builds a distributable vlote.dmg.
 #
 #   ./package.sh            ad-hoc signed. Recipients must right-click > Open.
 #   ./package.sh --release  Developer ID + notarised + stapled. Opens cleanly
@@ -8,7 +8,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-APP_NAME="Macnizer"
+APP_NAME="vlote"
 VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Resources/Info.plist)"
 DMG="dist/${APP_NAME}-${VERSION}.dmg"
 STAGE="build/dmg-stage"
@@ -49,21 +49,21 @@ ln -s /Applications "$STAGE/Applications"
 
 if $RELEASE; then
 cat > "$STAGE/READ ME.txt" <<'TXT'
-Macnizer
+vlote
 ========
 
-1. Drag Macnizer onto the Applications folder, then open it normally.
+1. Drag vlote onto the Applications folder, then open it normally.
 
 2. Grant Accessibility access when asked.
-   System Settings > Privacy & Security > Accessibility > switch Macnizer on.
+   System Settings > Privacy & Security > Accessibility > switch vlote on.
    macOS does not let ANY app move windows without this, so until it is granted
-   Macnizer can see your windows but cannot arrange them. The menu bar panel
+   vlote can see your windows but cannot arrange them. The menu bar panel
    shows an orange warning until then.
 
 3. Optional - the Tabs pane asks for Automation access per browser the first
-   time you use it. Macnizer reads only tab titles and URLs, never page content.
+   time you use it. vlote reads only tab titles and URLs, never page content.
 
-Macnizer lives in the menu bar and has no Dock icon. The glyph is filled while
+vlote lives in the menu bar and has no Dock icon. The glyph is filled while
 arranging and hollow while paused.
 
     Option-Command-T        pause / resume arranging
@@ -78,27 +78,27 @@ Requires macOS 14 or later. Universal: Apple Silicon and Intel.
 TXT
 else
 cat > "$STAGE/READ ME FIRST.txt" <<'TXT'
-Macnizer
+vlote
 ========
 
-1. Drag Macnizer onto the Applications folder.
+1. Drag vlote onto the Applications folder.
 
 2. IMPORTANT - the first launch needs a right-click.
-   In Applications, RIGHT-CLICK Macnizer and choose "Open", then click
+   In Applications, RIGHT-CLICK vlote and choose "Open", then click
    "Open" again in the dialog. Double-clicking will NOT work the first time:
    this build is not notarised by Apple, so macOS says the developer "cannot
    be verified". After the first right-click-Open it launches normally.
 
    If macOS still refuses:
-       xattr -dr com.apple.quarantine /Applications/Macnizer.app
+       xattr -dr com.apple.quarantine /Applications/vlote.app
 
 3. Grant Accessibility access when asked.
-   System Settings > Privacy & Security > Accessibility > switch Macnizer on.
+   System Settings > Privacy & Security > Accessibility > switch vlote on.
 
 4. Optional - the Tabs pane asks for Automation access per browser.
-   Macnizer reads only tab titles and URLs, never page content.
+   vlote reads only tab titles and URLs, never page content.
 
-Macnizer lives in the menu bar and has no Dock icon.
+vlote lives in the menu bar and has no Dock icon.
 
     Option-Command-T        pause / resume arranging
     Option-Command-Space    next layout

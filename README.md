@@ -1,8 +1,12 @@
-# Macnizer
+# vlote
 
 A menu bar app that keeps your Mac tidy without being asked: it arranges every
 open window into a clean layout automatically, and gives you one place to see and
 cull the browser tabs piling up across Chrome, Brave, Edge, Arc, Vivaldi and Safari.
+
+It also takes screenshots: area, window and fullscreen captures, with a repeat
+of the last area and a QR/text grab, all from the same menu bar icon. (Formerly
+Macnizer and Snaple, now one app.)
 
 Built for macOS 14+, universal (Apple Silicon and Intel). No Xcode required —
 Command Line Tools are enough.
@@ -25,7 +29,7 @@ Command Line Tools are enough.
 
 ```bash
 ./build.sh
-open build/Macnizer.app
+open build/vlote.app
 ```
 
 If you have an Apple **Developer ID Application** certificate installed,
@@ -38,17 +42,21 @@ which achieves the same permission stability locally. Failing both, the app is
 ad-hoc signed and macOS revokes its permissions on every single rebuild — see
 *Why signing matters* below.
 
-On first launch Macnizer asks for **Accessibility** access. This is not optional:
+On first launch vlote asks for **Accessibility** access. This is not optional:
 macOS gives no other way to move another app's windows. Approve it under
 **System Settings › Privacy & Security › Accessibility**, and arranging starts
 immediately — no relaunch.
 
+Screenshots need **Screen Recording** access, which macOS asks for the first time
+you capture. Approve it under **System Settings › Privacy & Security › Screen &
+System Audio Recording**.
+
 The first time you open the **Tabs** pane, each browser separately asks for
-**Automation** access. Macnizer reads only tab titles and URLs; it has no way to
+**Automation** access. vlote reads only tab titles and URLs; it has no way to
 see page contents.
 
 To launch at login: System Settings › General › Login Items › **+**, and pick
-`build/Macnizer.app`.
+`build/vlote.app`.
 
 ## Giving it to someone else
 
@@ -57,7 +65,7 @@ To launch at login: System Settings › General › Login Items › **+**, and p
 ./package.sh --release  # Developer ID + notarised: opens with a double-click
 ```
 
-Both produce `dist/Macnizer-1.0.dmg` — universal, with an Applications symlink
+Both produce `dist/vlote-1.0.dmg` — universal, with an Applications symlink
 and install notes.
 
 ## Publishing
@@ -121,7 +129,7 @@ and no revenue share.
 
 ## Using it
 
-Macnizer runs in the menu bar. The icon dims when arranging is paused.
+vlote runs in the menu bar. The icon dims when arranging is paused.
 
 | Shortcut | Does |
 |---|---|
@@ -129,6 +137,20 @@ Macnizer runs in the menu bar. The icon dims when arranging is paused.
 | `⌥⌘Space` | Next layout |
 | `⌥⌘R` | Arrange now |
 | `⌥⌘O` | Open the panel |
+| `` ` `` (backtick) | Columns layout |
+
+### Screenshots
+
+| Shortcut | Does |
+|---|---|
+| `⌃⌘4` | Capture an area |
+| `⌃⌘5` | Capture a window |
+| `⌃⌘3` | Capture the full screen |
+| `⌃⌘R` | Repeat the last area capture |
+| `⌃⌘T` | Grab text from the screen |
+| `⌃⌘B` | Read a QR code from the screen |
+
+Captures can be uploaded to the cloud from the menu, after signing in once.
 
 Resizing a tiled window snaps it back rather than adjusting the split ratio —
 drag windows onto each other to change the arrangement instead.
@@ -161,7 +183,7 @@ everything and bring it back later. Stored as plain JSON in
 
 ## What it deliberately does not do
 
-**It does not fight you.** Macnizer rearranges when a window opens, closes, is
+**It does not fight you.** vlote rearranges when a window opens, closes, is
 minimised, or when you switch Space or display — not when you move a window
 yourself. Dragging a window somewhere is treated as intent, and it stays there
 until the next structural change. Watching for moves would mean reacting to our
@@ -271,4 +293,5 @@ Sources/
     StatusIcon.swift      The menu bar glyph, drawn as a template image
     DropOverlay.swift     The highlight showing where a drop will land
     PanelView.swift       The SwiftUI panel
+  Snaple/                 Screenshot tools (capture, annotate, OCR, QR, cloud upload)
 ```

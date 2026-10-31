@@ -46,6 +46,7 @@ final class Settings: ObservableObject {
     @Published var masterRatio: CGFloat    { didSet { d.set(Double(masterRatio), forKey: "masterRatio") } }
     @Published var minWindowSize: CGFloat  { didSet { d.set(Double(minWindowSize), forKey: "minWindowSize") } }
     @Published var floatedApps: [String]   { didSet { d.set(floatedApps, forKey: "floatedApps") } }
+    @Published var fullPageSetupDone: Bool { didSet { d.set(fullPageSetupDone, forKey: "fullPageSetupDone") } }
 
     /// Apps that are worse off tiled: modal-heavy utilities, media players,
     /// anything whose windows are deliberately small. Users can edit this list.
@@ -74,6 +75,7 @@ final class Settings: ObservableObject {
             "masterRatio": 0.6,
             "minWindowSize": 220.0,
             "floatedApps": Settings.defaultFloated,
+            "fullPageSetupDone": false,
         ])
         autoTile      = d.bool(forKey: "autoTile")
         snapBack      = d.bool(forKey: "snapBack")
@@ -83,6 +85,7 @@ final class Settings: ObservableObject {
         masterRatio   = CGFloat(d.double(forKey: "masterRatio"))
         minWindowSize = CGFloat(d.double(forKey: "minWindowSize"))
         floatedApps   = d.stringArray(forKey: "floatedApps") ?? Settings.defaultFloated
+        fullPageSetupDone = d.bool(forKey: "fullPageSetupDone")
     }
 
     func isFloated(bundleID: String?) -> Bool {

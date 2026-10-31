@@ -58,6 +58,8 @@ struct TabRef: Identifiable, Hashable {
 enum BrowserError: LocalizedError {
     case notAuthorized(String)
     case failed(String, String)
+    /// "Allow JavaScript from Apple Events" is off in the browser.
+    case javaScriptDisabled(String)
 
     var errorDescription: String? {
         switch self {
@@ -65,6 +67,8 @@ enum BrowserError: LocalizedError {
             return "Macnizer needs permission to control \(app). Grant it under System Settings › Privacy & Security › Automation."
         case .failed(let app, let message):
             return "\(app): \(message)"
+        case .javaScriptDisabled(let app):
+            return "Turn on \"Allow JavaScript from Apple Events\" in \(app) (Safari: Develop menu; Chrome: View › Developer)."
         }
     }
 }
@@ -225,8 +229,44 @@ enum BrowserBridge {
                 throw BrowserError.notAuthorized(browser.name)
             }
             let message = errorInfo[NSAppleScript.errorMessage] as? String ?? "AppleScript error \(code)"
+            let lower = message.lowercased()
+            if lower.contains("javascript") && (lower.contains("apple events") || lower.contains("turned off")) {
+                throw BrowserError.javaScriptDisabled(browser.name)
+            }
             throw BrowserError.failed(browser.name, message)
         }
         return result.stringValue ?? ""
+    }
+
+    // MARK: - Page JavaScript
+
+    /// Runs JavaScript in the active tab of the browser's front window and returns its string result.
+    /// The script must be synchronous and return a string (Apple Events do not await promises).
+    static func executeJavaScript(_ js: String, in browser: Browser) async throws -> String {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do { continuation.resume(returning: try runJavaScript(js, in: browser)) }
+                catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+
+    private static func runJavaScript(_ js: String, in browser: Browser) throws -> String {
+        // Escape for an AppleScript string literal. Scripts are written on one line.
+        let literal = js
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: " ")
+
+        let statement = browser.id == "com.apple.Safari"
+            ? "(do JavaScript \"\(literal)\" in current tab of front window)"
+            : "(execute active tab of front window javascript \"\(literal)\")"
+
+        let source = """
+        tell application "\(browser.name)"
+            return \(statement)
+        end tell
+        """
+        return try run(source, browser: browser)
     }
 }
