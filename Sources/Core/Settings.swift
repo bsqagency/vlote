@@ -10,6 +10,10 @@ enum LayoutKind: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Shown on the Tabs page. The rest sit behind "More".
+    static let primary: [LayoutKind] = [.bsp, .columns, .masterStack]
+    static let more: [LayoutKind] = [.rows, .grid]
+
     var label: String {
         switch self {
         case .bsp:         return "Split"

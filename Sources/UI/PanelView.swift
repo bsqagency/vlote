@@ -7,7 +7,6 @@ enum PanelPage {
 enum PanelTab: String, CaseIterable {
     case windows = "Windows"
     case tabs = "Tabs"
-    case sessions = "Sessions"
 }
 
 struct PanelView: View {
@@ -151,7 +150,6 @@ struct PanelView: View {
                 switch tab {
                 case .windows:  windowsPane
                 case .tabs:     tabsPane
-                case .sessions: sessionsPane
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -199,37 +197,53 @@ struct PanelView: View {
                 section("Layout") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
                               spacing: 8) {
-                        ForEach(LayoutKind.allCases) { kind in
+                        ForEach(LayoutKind.primary) { kind in
                             layoutButton(kind)
                         }
+                        moreLayoutsMenu
                     }
-                }
-
-                section("Arrange by hand") {
-                    Label {
-                        Text("Drag any window onto another to split that tile. Drop on the **top or bottom** half for rows, the **left or right** half for columns. Drop again to add a third.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    } icon: {
-                        Image(systemName: "hand.draw")
-                            .foregroundStyle(.secondary)
-                    }
-
+                    Text("Drag a window onto another to split it.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                     Button("Back to this layout") { Tiler.shared.applyPreset() }
                         .controlSize(.small)
                 }
-
-                section("Spacing") {
-                    Text("Gaps and screen edge live in Preferences.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Button("Tabs Preferences…") { PreferencesWindow.shared.show(page: .organize) }
-                        .controlSize(.small)
-                }
+                .help("Gaps and screen edge: Tabs Preferences")
             }
             .padding(14)
         }
+    }
+
+    private var moreLayoutsMenu: some View {
+        let selected = LayoutKind.more.contains(settings.layout)
+        return Menu {
+            ForEach(LayoutKind.more) { kind in
+                Button(kind.label) {
+                    settings.layout = kind
+                    Tiler.shared.applyPreset()
+                }
+            }
+        } label: {
+            VStack(spacing: 5) {
+                Image(systemName: selected ? settings.layout.symbol : "ellipsis").font(.system(size: 17, weight: .regular))
+                Text(selected ? settings.layout.label : "More").font(.system(size: 10)).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(selected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.07))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 1.5)
+            )
+            .foregroundStyle(selected ? Color.accentColor : .primary)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func layoutButton(_ kind: LayoutKind) -> some View {
@@ -276,6 +290,10 @@ struct PanelView: View {
             .padding(.horizontal, 10).padding(.vertical, 7)
             .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.1)))
             .padding(10)
+
+            sessionsSection
+                .padding(.horizontal, 10)
+                .padding(.bottom, 6)
 
             if !store.duplicateGroups.isEmpty {
                 HStack(spacing: 8) {
@@ -336,54 +354,42 @@ struct PanelView: View {
         }
     }
 
-    // MARK: - Sessions
+    // MARK: - Sessions (inside Tabs)
 
-    private var sessionsPane: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                TextField("Name this session", text: $sessionName)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 12))
-                Button("Save") {
-                    store.saveSession(named: sessionName)
-                    sessionName = ""
+    private var sessionsSection: some View {
+        DisclosureGroup("Sessions (\(store.sessions.count))") {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    TextField("Name this session", text: $sessionName)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12))
+                    Button("Save Tabs") {
+                        store.saveSession(named: sessionName)
+                        sessionName = ""
+                    }
+                    .controlSize(.small)
+                    .disabled(store.tabs.isEmpty)
                 }
-                .controlSize(.small)
-                .disabled(store.tabs.isEmpty)
-            }
-            .padding(10)
 
-            if store.sessions.isEmpty {
-                VStack(spacing: 8) {
-                    Spacer()
-                    Image(systemName: "tray.full").font(.system(size: 26)).foregroundStyle(.tertiary)
-                    Text("Saved sessions let you close everything\nand bring it back later.")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                    Spacer()
-                }
-            } else {
-                List {
-                    ForEach(store.sessions) { session in
-                        HStack(spacing: 8) {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(session.name).font(.system(size: 12)).lineLimit(1)
-                                Text("\(session.urls.count) tabs · \(session.createdAt.formatted(date: .abbreviated, time: .shortened))")
-                                    .font(.system(size: 10)).foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 4)
-                            Button("Open") { store.restore(session) }.controlSize(.small)
-                            Button { store.delete(session) } label: {
-                                Image(systemName: "trash").font(.system(size: 10))
-                            }
-                            .buttonStyle(.plain).foregroundStyle(.secondary)
+                ForEach(store.sessions) { session in
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(session.name).font(.system(size: 12)).lineLimit(1)
+                            Text("\(session.urls.count) tabs · \(session.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.system(size: 10)).foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, 2)
+                        Spacer(minLength: 4)
+                        Button("Open") { store.restore(session) }.controlSize(.small)
+                        Button { store.delete(session) } label: {
+                            Image(systemName: "trash").font(.system(size: 10))
+                        }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
                     }
                 }
-                .listStyle(.inset)
             }
+            .padding(.top, 4)
         }
+        .font(.system(size: 12, weight: .medium))
     }
 
     // MARK: - Capture
@@ -557,9 +563,8 @@ struct PanelView: View {
 
             Menu {
                 Text("Toggle arranging  \(HotkeyManager.toggleAuto.label)")
-                Text("Next layout  \(HotkeyManager.cycleLayout.label)")
-                Text("Columns  \(HotkeyManager.columns.label)")
                 Text("Arrange now  \(HotkeyManager.retileNow.label)")
+                Text("Double-tap Tab  arrange now")
                 Divider()
                 Button("Reset to layout") { Tiler.shared.resetOrder() }
                 Button("Rescan tabs") { store.refresh() }

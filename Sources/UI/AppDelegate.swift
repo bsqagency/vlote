@@ -63,8 +63,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if AX.isTrusted {
             startEngine()
         } else {
-            Diagnostics.shared.log("not trusted — prompting and polling")
-            requestAccessibility()
+            Diagnostics.shared.log("not trusted — waiting for setup")
+            waitForTrust()
+        }
+
+        if !UserDefaults.standard.bool(forKey: "onboardingShown") {
+            UserDefaults.standard.set(true, forKey: "onboardingShown")
+            OnboardingWindow.show()
         }
     }
 
@@ -84,30 +89,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Permissions
 
-    private func requestAccessibility() {
-        let alert = NSAlert()
-        alert.messageText = "Macnizer needs Accessibility access"
-        alert.informativeText = """
-        To move and resize windows, macOS requires Macnizer to be enabled under \
-        Privacy & Security › Accessibility.
-
-        Click Open Settings, switch Macnizer on, and it will start arranging \
-        straight away — no restart needed.
-        """
-        alert.addButton(withTitle: "Open Settings")
-        alert.addButton(withTitle: "Later")
-        alert.alertStyle = .informational
-
-        NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn {
-            AX.requestTrust()
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                NSWorkspace.shared.open(url)
-            }
-        }
-        waitForTrust()
-    }
-
     /// There is no notification for "Accessibility was just granted", so poll.
     /// Cheap, and it means the app starts working the moment the user flips the
     /// switch rather than requiring a relaunch.
@@ -125,6 +106,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startEngine() {
         WindowWatcher.shared.start()
         DragWatcher.shared.start()
+        DoubleTabWatcher.shared.onDoubleTap = { [weak self] in self?.arrangeNow() }
+        DoubleTabWatcher.shared.start()
         Diagnostics.shared.engineRunning = true
         Diagnostics.shared.log("engine started")
     }
@@ -135,8 +118,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hk = HotkeyManager.shared
 
         hk.register(HotkeyManager.toggleAuto) { [weak self] in self?.toggleArranging() }
-        hk.register(HotkeyManager.cycleLayout) { [weak self] in self?.nextLayout() }
-        hk.register(HotkeyManager.columns) { [weak self] in self?.columnsLayout() }
         hk.register(HotkeyManager.retileNow) { [weak self] in self?.arrangeNow() }
         hk.register(HotkeyManager.openPanel) { [weak self] in
             self?.menuBar.showPopover()
@@ -152,13 +133,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func toggleArranging() {
         Settings.shared.autoTile.toggle()
         if Settings.shared.autoTile { Tiler.shared.retile() }
-    }
-
-    private func nextLayout() { Tiler.shared.cycleLayout() }
-
-    private func columnsLayout() {
-        Settings.shared.layout = .columns
-        Tiler.shared.applyPreset()
     }
 
     private func arrangeNow() { Tiler.shared.retile() }
@@ -202,8 +176,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         arrangingItem = add(tabs, "Toggle Arranging", HotkeyManager.toggleAuto.label, #selector(menuToggleArranging))
         arrangingItem?.state = Settings.shared.autoTile ? .on : .off
         add(tabs, "Arrange Now", HotkeyManager.retileNow.label, #selector(menuArrangeNow))
-        add(tabs, "Next Layout", HotkeyManager.cycleLayout.label, #selector(menuNextLayout))
-        add(tabs, "Columns", HotkeyManager.columns.label, #selector(menuColumns))
         attach("Tabs", tabs)
 
         // Snaps ▸ Snaple capture
@@ -244,8 +216,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuToggleArranging() { afterMenuCloses { self.toggleArranging() } }
     @objc private func menuArrangeNow() { afterMenuCloses { self.arrangeNow() } }
-    @objc private func menuNextLayout() { afterMenuCloses { self.nextLayout() } }
-    @objc private func menuColumns() { afterMenuCloses { self.columnsLayout() } }
 
     @objc private func runCapture(_ sender: NSMenuItem) {
         guard let action = sender.representedObject as? HotkeyAction else { return }

@@ -20,11 +20,9 @@ final class HotkeyManager {
     private static let optCmd = UInt32(optionKey | cmdKey)
 
     static let toggleAuto  = Shortcut(keyCode: UInt32(kVK_ANSI_T), modifiers: optCmd, label: "⌥⌘T")
-    static let cycleLayout = Shortcut(keyCode: UInt32(kVK_Space),  modifiers: optCmd, label: "⌥⌘Space")
     static let retileNow   = Shortcut(keyCode: UInt32(kVK_ANSI_R), modifiers: optCmd, label: "⌥⌘R")
     static let openPanel   = Shortcut(keyCode: UInt32(kVK_ANSI_O), modifiers: optCmd, label: "⌥⌘O")
     static let clipboard   = Shortcut(keyCode: UInt32(kVK_ANSI_V), modifiers: optCmd, label: "⌥⌘V")
-    static let columns     = Shortcut(keyCode: UInt32(kVK_ANSI_Grave), modifiers: 0, label: "`")
 
     private var actions: [UInt32: () -> Void] = [:]
     private var refs: [EventHotKeyRef?] = []
