@@ -19,7 +19,6 @@ final class HotkeyManager {
     // ⌥⌘ is a safe base: rarely claimed by apps, impossible to hit by accident.
     private static let optCmd = UInt32(optionKey | cmdKey)
 
-    static let toggleAuto  = Shortcut(keyCode: UInt32(kVK_ANSI_T), modifiers: optCmd, label: "⌥⌘T")
     static let retileNow   = Shortcut(keyCode: UInt32(kVK_ANSI_R), modifiers: optCmd, label: "⌥⌘R")
     static let openPanel   = Shortcut(keyCode: UInt32(kVK_ANSI_O), modifiers: optCmd, label: "⌥⌘O")
     static let clipboard   = Shortcut(keyCode: UInt32(kVK_ANSI_V), modifiers: optCmd, label: "⌥⌘V")

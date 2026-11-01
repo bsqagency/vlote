@@ -117,7 +117,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func registerHotkeys() {
         let hk = HotkeyManager.shared
 
-        hk.register(HotkeyManager.toggleAuto) { [weak self] in self?.toggleArranging() }
         hk.register(HotkeyManager.retileNow) { [weak self] in self?.arrangeNow() }
         hk.register(HotkeyManager.openPanel) { [weak self] in
             self?.menuBar.showPopover()
@@ -173,7 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Tabs ▸ window tiling
         let tabs = submenu("Tabs")
-        arrangingItem = add(tabs, "Toggle Arranging", HotkeyManager.toggleAuto.label, #selector(menuToggleArranging))
+        arrangingItem = add(tabs, "Toggle Arranging", "", #selector(menuToggleArranging))
         arrangingItem?.state = Settings.shared.autoTile ? .on : .off
         add(tabs, "Arrange Now", HotkeyManager.retileNow.label, #selector(menuArrangeNow))
         attach("Tabs", tabs)

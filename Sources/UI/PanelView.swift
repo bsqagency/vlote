@@ -562,7 +562,6 @@ struct PanelView: View {
             Spacer()
 
             Menu {
-                Text("Toggle arranging  \(HotkeyManager.toggleAuto.label)")
                 Text("Arrange now  \(HotkeyManager.retileNow.label)")
                 Text("Double-tap Tab  arrange now")
                 Divider()
