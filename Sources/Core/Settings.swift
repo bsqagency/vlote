@@ -66,7 +66,7 @@ final class Settings: ObservableObject {
 
     private init() {
         d.register(defaults: [
-            "autoTile": true,
+            "autoTile": false,
             "snapBack": true,
             "layout": LayoutKind.bsp.rawValue,
             "gap": 2.0,
