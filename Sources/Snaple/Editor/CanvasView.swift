@@ -18,10 +18,29 @@ final class CanvasView: NSView, NSTextFieldDelegate {
 
     private enum Handle { case start, end }
 
+    /// Small value label shown near the cursor while scrolling changes stroke thickness.
+    private let widthHUD: NSTextField = {
+        let f = NSTextField(labelWithString: "")
+        f.font = .monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
+        f.textColor = .white
+        f.alignment = .center
+        f.drawsBackground = true
+        f.backgroundColor = NSColor.black.withAlphaComponent(0.72)
+        f.wantsLayer = true
+        f.layer?.cornerRadius = 6
+        f.isHidden = true
+        f.refusesFirstResponder = true
+        return f
+    }()
+    private var hudWork: DispatchWorkItem?
+    /// Fractional trackpad scroll not yet worth a whole point.
+    private var scrollAccum: Double = 0
+
     init(model: EditorModel) {
         self.model = model
         super.init(frame: .zero)
         wantsLayer = true
+        addSubview(widthHUD)
         model.objectWillChange
             .sink { [weak self] in DispatchQueue.main.async { self?.refresh() } }
             .store(in: &bag)
@@ -78,8 +97,15 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         ctx.interpolationQuality = .high
         var shown = model.annotations
         if let draft, draft.kind != .text, model.tool != .crop { shown.append(draft) }
-        model.renderer.draw(shown, in: ctx, hiding: model.editingTextID)
+        // 8 view points on screen; the renderer works in image coordinates, so divide by the fit scale.
+        model.renderer.draw(shown, in: ctx, hiding: model.editingTextID, cornerRadius: 8 / f.scale)
         ctx.restoreGState()
+
+        let frame = CGRect(origin: toView(.zero), size: CGSize(width: imageSize.width * f.scale, height: imageSize.height * f.scale))
+        let border = NSBezierPath(roundedRect: frame.insetBy(dx: 0.5, dy: 0.5), xRadius: 8, yRadius: 8)
+        NSColor.labelColor.withAlphaComponent(0.15).setStroke()
+        border.lineWidth = 1
+        border.stroke()
 
         drawCropOverlay(ctx)
         drawSelection(ctx)
@@ -229,6 +255,39 @@ final class CanvasView: NSView, NSTextFieldDelegate {
         }
     }
 
+    /// Scroll wheel over the canvas changes the active stroke tool's width for the next stroke.
+    /// Trackpad deltas accumulate into whole points; a wheel notch is one point. Clamped to 1–40 pt.
+    override func scrollWheel(with event: NSEvent) {
+        guard model.tool.usesStroke, model.editingTextID == nil else { super.scrollWheel(with: event); return }
+        let dy = Double(event.scrollingDeltaY)
+        guard dy != 0 else { return }
+        let step: Double
+        if event.hasPreciseScrollingDeltas {
+            scrollAccum += dy * 0.2
+            step = scrollAccum.rounded(.towardZero)
+            scrollAccum -= step
+        } else {
+            step = dy > 0 ? 1 : -1
+        }
+        guard step != 0 else { return }
+        model.lineWidthPt = min(40, max(1, model.lineWidthPt + step))
+        showWidthHUD(at: convert(event.locationInWindow, from: nil))
+    }
+
+    private func showWidthHUD(at p: CGPoint) {
+        widthHUD.stringValue = "\(Int(model.lineWidthPt.rounded())) pt"
+        widthHUD.sizeToFit()
+        let size = CGSize(width: widthHUD.frame.width + 16, height: widthHUD.frame.height + 6)
+        let x = min(p.x + 16, bounds.maxX - size.width - 4)
+        let y = min(p.y + 16, bounds.maxY - size.height - 4)
+        widthHUD.frame = CGRect(x: x, y: y, width: size.width, height: size.height)
+        widthHUD.isHidden = false
+        hudWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.widthHUD.isHidden = true }
+        hudWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
+    }
+
     /// Shift: snap lines/arrows to 45° steps and force rectangles/ellipses/redactions square.
     private func constrain(_ p: CGPoint, from o: CGPoint, kind: Annotation.Kind, shift: Bool) -> CGPoint {
         guard shift else { return p }
@@ -239,7 +298,7 @@ final class CanvasView: NSView, NSTextFieldDelegate {
             let angle = (atan2(dy, dx) / step).rounded() * step
             let len = hypot(dx, dy)
             return CGPoint(x: o.x + cos(angle) * len, y: o.y + sin(angle) * len)
-        case .rectangle, .ellipse, .blur, .pixelate, .spotlight:
+        case .rectangle, .roundedRectangle, .ellipse, .blur, .pixelate, .spotlight:
             let m = max(abs(dx), abs(dy))
             return CGPoint(x: o.x + (dx < 0 ? -m : m), y: o.y + (dy < 0 ? -m : m))
         default: return p
@@ -247,6 +306,18 @@ final class CanvasView: NSView, NSTextFieldDelegate {
     }
 
     // MARK: Keyboard
+
+    /// Command+C copies the flattened image, shows the toast and closes the editor. Skipped while a text field
+    /// is being edited (its field editor is the first responder), so normal text copy still works.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        guard flags == .command, event.charactersIgnoringModifiers?.lowercased() == "c",
+              !(window?.firstResponder is NSTextView) else { return super.performKeyEquivalent(with: event) }
+        Output.copyToPasteboard(model.exportImage(), scale: model.capture.scale)
+        Toast.show("Copied", symbol: "doc.on.doc.fill")
+        window?.close()
+        return true
+    }
 
     override func keyDown(with event: NSEvent) {
         let flags = event.modifierFlags.intersection([.command, .control, .option])

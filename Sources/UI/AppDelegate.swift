@@ -18,13 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        menuBar.install()
+        menuBar.install(menu: buildStatusMenu())
 
-        // Snaple's capture actions share Macnizer's one status item: right-click opens its menu,
-        // and the countdown shows on the same icon.
+        // Snaple's capture actions share Macnizer's one status item; the countdown shows on the same icon.
         snaple.start()
         snaple.setStatusTitle = { [weak self] title in self?.menuBar.setTitle(title) }
-        menuBar.secondaryMenu = { [weak self] in self?.snaple.makeMenu() ?? NSMenu() }
         NotificationCenter.default.addObserver(forName: .hotkeysChanged, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.registerSnapleHotkeys() }
         }
@@ -54,7 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // — panel toggle, hotkey, or another window of the app.
         Settings.shared.$autoTile
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.menuBar.updateIcon() }
+            .sink { [weak self] on in
+                self?.menuBar.updateIcon()
+                self?.arrangingItem?.state = on ? .on : .off
+            }
             .store(in: &cancellables)
 
         Diagnostics.shared.log("launched; accessibility trusted = \(AX.isTrusted)")
@@ -133,26 +134,130 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func registerHotkeys() {
         let hk = HotkeyManager.shared
 
-        hk.register(HotkeyManager.toggleAuto) {
-            Settings.shared.autoTile.toggle()
-            if Settings.shared.autoTile { Tiler.shared.retile() }
-        }
-        hk.register(HotkeyManager.cycleLayout) {
-            Tiler.shared.cycleLayout()
-        }
-        hk.register(HotkeyManager.columns) {
-            Settings.shared.layout = .columns
-            Tiler.shared.applyPreset()
-        }
-        hk.register(HotkeyManager.retileNow) {
-            Tiler.shared.retile()
-        }
+        hk.register(HotkeyManager.toggleAuto) { [weak self] in self?.toggleArranging() }
+        hk.register(HotkeyManager.cycleLayout) { [weak self] in self?.nextLayout() }
+        hk.register(HotkeyManager.columns) { [weak self] in self?.columnsLayout() }
+        hk.register(HotkeyManager.retileNow) { [weak self] in self?.arrangeNow() }
         hk.register(HotkeyManager.openPanel) { [weak self] in
             self?.menuBar.showPopover()
         }
+        _ = ClipStore.shared  // start recording clipboard history at launch
+        hk.register(HotkeyManager.clipboard) { [weak self] in self?.toggleClipboard() }
 
         registerSnapleHotkeys()
     }
+
+    // MARK: - Actions (shared by hotkeys and the status menu)
+
+    private func toggleArranging() {
+        Settings.shared.autoTile.toggle()
+        if Settings.shared.autoTile { Tiler.shared.retile() }
+    }
+
+    private func nextLayout() { Tiler.shared.cycleLayout() }
+
+    private func columnsLayout() {
+        Settings.shared.layout = .columns
+        Tiler.shared.applyPreset()
+    }
+
+    private func arrangeNow() { Tiler.shared.retile() }
+
+    private func toggleClipboard() { ClipWindowController.shared.toggle() }
+
+    // MARK: - Status menu
+
+    private weak var arrangingItem: NSMenuItem?
+
+    /// The one menu behind the status item. Each item calls the same action as its hotkey or panel control.
+    private func buildStatusMenu() -> NSMenu {
+        let menu = NSMenu()
+        @discardableResult
+        func add(_ into: NSMenu, _ title: String, _ shortcut: String = "", _ action: Selector, key: String = "") -> NSMenuItem {
+            let item = NSMenuItem(title: shortcut.isEmpty ? title : "\(title)    \(shortcut)",
+                                  action: action, keyEquivalent: key)
+            item.target = self
+            into.addItem(item)
+            return item
+        }
+        func capture(_ into: NSMenu, _ title: String, _ action: HotkeyAction, _ shortcut: String? = nil) {
+            let item = add(into, title, shortcut ?? action.hotkey.displayString, #selector(runCapture(_:)))
+            item.representedObject = action
+        }
+        func submenu(_ title: String) -> NSMenu {
+            NSMenu(title: title)
+        }
+        func attach(_ title: String, _ sub: NSMenu) {
+            let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            parent.submenu = sub
+            menu.addItem(parent)
+        }
+
+        // Open Vlote: opens the panel
+        add(menu, "Open Vlote", "", #selector(menuOpenPanel))
+        menu.addItem(.separator())
+
+        // Tabs ▸ window tiling
+        let tabs = submenu("Tabs")
+        arrangingItem = add(tabs, "Toggle Arranging", HotkeyManager.toggleAuto.label, #selector(menuToggleArranging))
+        arrangingItem?.state = Settings.shared.autoTile ? .on : .off
+        add(tabs, "Arrange Now", HotkeyManager.retileNow.label, #selector(menuArrangeNow))
+        add(tabs, "Next Layout", HotkeyManager.cycleLayout.label, #selector(menuNextLayout))
+        add(tabs, "Columns", HotkeyManager.columns.label, #selector(menuColumns))
+        attach("Tabs", tabs)
+
+        // Snaps ▸ Snaple capture
+        let snaps = submenu("Snaps")
+        capture(snaps, "Capture Area", .area)
+        capture(snaps, "Capture Window", .window)
+        capture(snaps, "Capture Fullscreen", .fullscreen)
+        capture(snaps, "Repeat Last", .repeatLast)
+        capture(snaps, "Grab Text", .ocr)
+        capture(snaps, "Scan QR", .qr)
+        add(snaps, "Full Page", FullPageController.shortcutLabel, #selector(menuFullPage))
+        add(snaps, "Library…", "", #selector(menuLibrary))
+        attach("Snaps", snaps)
+
+        // Clips ▸ clipboard history
+        let clips = submenu("Clips")
+        add(clips, "Clipboard History", HotkeyManager.clipboard.label, #selector(menuClipboard))
+        add(clips, "Delete All History", "", #selector(menuDeleteAllHistory))
+        add(clips, "Clipboard Preferences…", "", #selector(menuClipPreferences))
+        attach("Clips", clips)
+
+        menu.addItem(.separator())
+
+        let about = add(menu, "About Vlote", "", #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
+        about.target = NSApp
+        let quit = add(menu, "Quit Vlote", "", #selector(NSApplication.terminate(_:)), key: "q")
+        quit.target = NSApp
+        return menu
+    }
+
+    /// Menu items close the menu on click. Work starts after it has gone, so a capture
+    /// does not freeze the menu into the screenshot, and a window does not fight the menu for focus.
+    private func afterMenuCloses(_ work: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            MainActor.assumeIsolated { work() }
+        }
+    }
+
+    @objc private func menuToggleArranging() { afterMenuCloses { self.toggleArranging() } }
+    @objc private func menuArrangeNow() { afterMenuCloses { self.arrangeNow() } }
+    @objc private func menuNextLayout() { afterMenuCloses { self.nextLayout() } }
+    @objc private func menuColumns() { afterMenuCloses { self.columnsLayout() } }
+
+    @objc private func runCapture(_ sender: NSMenuItem) {
+        guard let action = sender.representedObject as? HotkeyAction else { return }
+        afterMenuCloses { self.snaple.perform(action) }
+    }
+
+    @objc private func menuFullPage() { afterMenuCloses { FullPageController.shared.start() } }
+    @objc private func menuLibrary() { afterMenuCloses { LibraryWindowController.shared.show() } }
+    @objc private func menuClipboard() { afterMenuCloses { self.toggleClipboard() } }
+    @objc private func menuDeleteAllHistory() { afterMenuCloses { ClipStore.shared.confirmDeleteAll() } }
+    @objc private func menuClipPreferences() { afterMenuCloses { PreferencesWindow.shared.show(page: .copyClips) } }
+    @objc private func menuOpenPanel() { afterMenuCloses { self.menuBar.showPopover() } }
 
     /// Snaple's shortcuts (⌃⌘…) use Snaple's HotkeyCenter, separate from Macnizer's Carbon registrations.
     /// Re-registered whenever Snaple's shortcuts change.

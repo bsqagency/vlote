@@ -159,7 +159,7 @@ struct PermissionSetupView: View {
             }
 
             step(1, "Screen Recording", done: model.screenOK,
-                 detail: "Lets vlote capture the browser window.") {
+                 detail: "Lets Vlote capture the browser window.") {
                 Button("Open Screen Recording…") {
                     _ = CGRequestScreenCaptureAccess()
                     PermissionChecks.openPane("Privacy_ScreenCapture")
@@ -167,7 +167,7 @@ struct PermissionSetupView: View {
             }
 
             step(2, "Automation for Chrome or Safari", done: model.automationOK,
-                 detail: "Lets vlote read the active tab. Keep Chrome or Safari open, then press the button to trigger the prompt.") {
+                 detail: "Lets Vlote read the active tab. Keep Chrome or Safari open, then press the button to trigger the prompt.") {
                 HStack {
                     Button("Ask Chrome / Safari") { Task { await model.refresh() } }
                     Button("Open Automation…") { PermissionChecks.openPane("Privacy_Automation") }

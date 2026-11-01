@@ -8,8 +8,12 @@ final class EditorModel: ObservableObject {
 
     @Published var annotations: [Annotation] = []
     @Published var cropRect: CGRect?
-    @Published var tool: Tool = .arrow
-    @Published var color: RGBAColor = .red
+    @Published var tool: Tool = .pen
+    /// Active style. `color` is its first stop (used by text and as the solid fallback).
+    @Published var gradient: Gradient = Gradient.palette[0].gradient
+    /// Last option chosen in each toolbar category, shown on the category button.
+    @Published var groupPick: [ToolGroup: Tool] = [:]
+    var color: RGBAColor { gradient.from }
     /// Stroke width and text size are edited in points and stored in image pixels.
     @Published var lineWidthPt: Double = 3
     @Published var fontSizePt: Double = 18
@@ -57,12 +61,18 @@ final class EditorModel: ObservableObject {
 
     // MARK: Mutations
 
+    func choose(_ t: Tool) {
+        tool = t
+        if let g = ToolGroup.allCases.first(where: { $0.tools.contains(t) }) { groupPick[g] = t }
+    }
+
     func makeAnnotation(_ kind: Annotation.Kind, at p: CGPoint) -> Annotation {
         var width = lineWidthPx
-        if kind == .highlighter { width *= 4 }
+        if kind == .highlighter { width *= Annotation.brushWidthFactor }
+        var g = gradient
+        if kind == .highlighter, g == .solid(.black) { g = .solid(.yellow) }
         return Annotation(kind: kind, start: p, end: p, points: (kind == .pen || kind == .highlighter) ? [p] : [],
-                          color: kind == .highlighter && color == .black ? .yellow : color,
-                          lineWidth: width, fontSize: fontSizePx)
+                          color: g.from, lineWidth: width, fontSize: fontSizePx, gradient: g)
     }
 
     func commit(_ a: Annotation) {
@@ -82,16 +92,18 @@ final class EditorModel: ObservableObject {
         selection = nil
     }
 
-    func setColor(_ c: RGBAColor) {
-        color = c
+    func setColor(_ c: RGBAColor) { setGradient(.solid(c)) }
+
+    func setGradient(_ g: Gradient) {
+        gradient = g
         guard var a = selected else { return }
-        beginChange(); a.color = c; replace(a)
+        beginChange(); a.color = g.from; a.gradient = g; replace(a)
     }
 
     func setLineWidth(_ pt: Double) {
         lineWidthPt = pt
         guard var a = selected, a.kind != .text, a.kind != .step else { return }
-        beginChange(); a.lineWidth = CGFloat(pt) * capture.scale * (a.kind == .highlighter ? 4 : 1); replace(a)
+        beginChange(); a.lineWidth = CGFloat(pt) * capture.scale * (a.kind == .highlighter ? Annotation.brushWidthFactor : 1); replace(a)
     }
 
     func setFontSize(_ pt: Double) {

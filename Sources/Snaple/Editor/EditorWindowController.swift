@@ -18,7 +18,15 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         open[capture.id] = wc
         ActivationPolicy.windowOpened()
         wc.showWindow(nil)
+        wc.bringToFront()
+        // The capture overlay may still be key for a moment after this; re-assert once it has closed.
+        DispatchQueue.main.async { [weak wc] in wc?.bringToFront() }
+    }
+
+    /// vlote is an accessory app, so it must activate itself before its window can become key.
+    private func bringToFront() {
         NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
     }
 
     private init(capture: CapturedImage, state: DocumentState?) {
@@ -34,6 +42,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         window.title = "Snaple — " + capture.createdAt.formatted(date: .abbreviated, time: .standard)
         window.isReleasedWhenClosed = false
         window.center()
+        window.minSize = NSSize(width: 900, height: 420)
         super.init(window: window)
         window.delegate = self
         window.contentView = NSHostingView(rootView: EditorView(

@@ -55,7 +55,6 @@ enum WindowManager {
         guard AX.isTrusted else { return [] }
 
         let onScreen = onScreenIDs()
-        let settings = Settings.shared
         let selfPID = ProcessInfo.processInfo.processIdentifier
 
         var result: [ManagedWindow] = []
@@ -68,7 +67,7 @@ enum WindowManager {
 
             let bundleID = app.bundleIdentifier
             if let bundleID, alwaysSkip.contains(bundleID) { continue }
-            if settings.isFloated(bundleID: bundleID) { continue }
+            if UniversalIgnore.shared.isIgnored(bundleID: bundleID) { continue }
 
             let appElement = AXUIElementCreateApplication(app.processIdentifier)
 
@@ -77,8 +76,7 @@ enum WindowManager {
                                         pid: app.processIdentifier,
                                         appName: app.localizedName ?? "App",
                                         bundleID: bundleID,
-                                        onScreen: onScreen,
-                                        minSize: settings.minWindowSize)
+                                        onScreen: onScreen)
                 else { continue }
                 result.append(win)
             }
@@ -92,8 +90,7 @@ enum WindowManager {
                                 pid: pid_t,
                                 appName: String,
                                 bundleID: String?,
-                                onScreen: Set<CGWindowID>,
-                                minSize: CGFloat) -> ManagedWindow? {
+                                onScreen: Set<CGWindowID>) -> ManagedWindow? {
 
         // Sheets, drawers, popovers and palettes all report a non-standard
         // subrole. Only real document/app windows tile well.
@@ -111,7 +108,7 @@ enum WindowManager {
         else { return nil }
 
         // Tiny windows are nearly always inspectors, HUDs or find bars.
-        guard size.width >= minSize, size.height >= minSize else { return nil }
+        guard !UniversalIgnore.shared.isTooSmall(size) else { return nil }
 
         let axFrame = CGRect(origin: origin, size: size)
 

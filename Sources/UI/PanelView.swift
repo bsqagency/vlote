@@ -1,16 +1,22 @@
 import SwiftUI
 
+enum PanelPage {
+    case home, organize, screenshot, clipboard
+}
+
 enum PanelTab: String, CaseIterable {
     case windows = "Windows"
     case tabs = "Tabs"
     case sessions = "Sessions"
-    case capture = "Capture"
 }
 
 struct PanelView: View {
     @ObservedObject var settings = Settings.shared
     @ObservedObject var store = TabStore.shared
+    @ObservedObject var clipStore = ClipStore.shared
+    @ObservedObject var clipPrefs = ClipPreferences.shared
 
+    @State private var page: PanelPage = .home
     @State private var tab: PanelTab = .windows
     @State private var windowCount = 0
     @State private var sessionName = ""
@@ -21,6 +27,115 @@ struct PanelView: View {
             header
             Divider()
 
+            Group {
+                switch page {
+                case .home:       homePage
+                case .organize:   organizePage
+                case .screenshot: capturePane
+                case .clipboard:  clipboardPane
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+            footer
+        }
+        .frame(width: 400, height: 560)
+        .onAppear {
+            page = .home
+            trusted = AX.isTrusted
+            refreshWindowCount()
+        }
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
+            trusted = AX.isTrusted
+        }
+        .onChange(of: page) { _, newPage in
+            if newPage == .organize { refreshWindowCount() }
+        }
+        .onChange(of: tab) { _, newTab in
+            if newTab == .tabs && store.tabs.isEmpty { store.refresh() }
+            if newTab == .windows { refreshWindowCount() }
+        }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            if page == .home {
+                Image(systemName: "square.grid.3x3.topleft.filled")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text("Vlote").font(.system(size: 13, weight: .semibold))
+                Spacer()
+            } else {
+                Button { page = .home } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+
+                if page == .organize {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Tabs").font(.system(size: 13, weight: .semibold))
+                        Text(settings.autoTile ? "Arranging automatically" : "Paused")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text(pageTitle).font(.system(size: 13, weight: .semibold))
+                }
+
+                Spacer()
+
+                if page == .organize {
+                    Toggle("", isOn: $settings.autoTile)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .onChange(of: settings.autoTile) { _, isOn in
+                            if isOn { WindowWatcher.shared.scheduleRetile(delay: 0.05) }
+                        }
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+
+    private var pageTitle: String {
+        switch page {
+        case .home: return "Vlote"
+        case .organize: return "Tabs"
+        case .screenshot: return "Snaps"
+        case .clipboard: return "Clips"
+        }
+    }
+
+    // MARK: - Home
+
+    private var homePage: some View {
+        VStack(spacing: 10) {
+            HomeCard(symbol: "square.grid.3x3.topleft.filled", title: "Tabs",
+                     subtitle: "Arrange windows, tabs and sessions") { page = .organize }
+            HomeCard(symbol: "camera.viewfinder", title: "Snaps",
+                     subtitle: "Capture, edit and save") { page = .screenshot }
+            HomeCard(symbol: "doc.on.clipboard", title: "Clips",
+                     subtitle: "Your clipboard history") { page = .clipboard }
+            HomeCard(symbol: "gearshape", title: "Vlote Preferences…",
+                     subtitle: "Settings for every part of Vlote") { PreferencesWindow.shared.show() }
+            Spacer()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Organize
+
+    private var organizePage: some View {
+        VStack(spacing: 0) {
             if !trusted { permissionBanner }
 
             Picker("", selection: $tab) {
@@ -37,51 +152,10 @@ struct PanelView: View {
                 case .windows:  windowsPane
                 case .tabs:     tabsPane
                 case .sessions: sessionsPane
-                case .capture:  capturePane
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Divider()
-            footer
         }
-        .frame(width: 400, height: 560)
-        .onAppear { trusted = AX.isTrusted; refreshWindowCount() }
-        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in
-            trusted = AX.isTrusted
-        }
-        .onChange(of: tab) { _, newTab in
-            if newTab == .tabs && store.tabs.isEmpty { store.refresh() }
-            if newTab == .windows { refreshWindowCount() }
-        }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "square.grid.3x3.topleft.filled")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(settings.autoTile ? Color.accentColor : .secondary)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text("vlote").font(.system(size: 13, weight: .semibold))
-                Text(settings.autoTile ? "Arranging automatically" : "Paused")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: $settings.autoTile)
-                .toggleStyle(.switch)
-                .labelsHidden()
-                .onChange(of: settings.autoTile) { _, isOn in
-                    if isOn { WindowWatcher.shared.scheduleRetile(delay: 0.05) }
-                }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
     }
 
     /// Shown whenever Accessibility access is missing. Without it Macnizer can
@@ -96,7 +170,7 @@ struct PanelView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Not arranging — needs Accessibility access")
                     .font(.system(size: 11, weight: .medium))
-                Text("vlote can see your windows but cannot move them.")
+                Text("Vlote can see your windows but cannot move them.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
@@ -141,55 +215,17 @@ struct PanelView: View {
                         Image(systemName: "hand.draw")
                             .foregroundStyle(.secondary)
                     }
-                    Toggle(isOn: $settings.snapBack) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Snap windows back").font(.system(size: 11))
-                            Text("A window knocked out of place returns to its tile.")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.checkbox)
 
                     Button("Back to this layout") { Tiler.shared.applyPreset() }
                         .controlSize(.small)
                 }
 
                 section("Spacing") {
-                    slider("Between windows", value: $settings.gap, range: 0...32, unit: "pt")
-                    slider("Screen edge", value: $settings.outerGap, range: 0...48, unit: "pt")
-                    if settings.layout == .masterStack {
-                        slider("Main window width", value: $settings.masterRatio,
-                               range: 0.3...0.8, unit: "%", isRatio: true, rebuild: true)
-                    }
-                }
-
-                section("Ignore") {
-                    Text("Windows smaller than \(Int(settings.minWindowSize))pt stay where they are.")
+                    Text("Gaps and screen edge live in Preferences.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                    slider("Minimum size", value: $settings.minWindowSize, range: 120...500, unit: "pt")
-
-                    if let front = frontmostApp() {
-                        Button {
-                            settings.toggleFloat(bundleID: front.id)
-                            Tiler.shared.retile()
-                            refreshWindowCount()
-                        } label: {
-                            Label(settings.isFloated(bundleID: front.id)
-                                  ? "Start arranging \(front.name)"
-                                  : "Leave \(front.name) alone",
-                                  systemImage: settings.isFloated(bundleID: front.id)
-                                  ? "checkmark.square" : "minus.square")
-                        }
+                    Button("Tabs Preferences…") { PreferencesWindow.shared.show(page: .organize) }
                         .controlSize(.small)
-                    }
-
-                    if !settings.floatedApps.isEmpty {
-                        Text("\(settings.floatedApps.count) apps ignored")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                    }
                 }
             }
             .padding(14)
@@ -355,7 +391,7 @@ struct PanelView: View {
     private var capturePane: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                section("Screenshot") {
+                section("Snaps") {
                     ForEach([HotkeyAction.area, .window, .fullscreen, .repeatLast, .ocr, .qr]) { action in
                         captureRow(action.title, symbol: captureSymbol(action), shortcut: action.hotkey.displayString) {
                             NotificationCenter.default.post(name: .snapleAction, object: nil,
@@ -372,12 +408,94 @@ struct PanelView: View {
                     captureRow("Library…", symbol: "photo.on.rectangle", shortcut: nil) {
                         NotificationCenter.default.post(name: .openSnapleLibrary, object: nil)
                     }
-                    captureRow("Screenshot Settings…", symbol: "gearshape", shortcut: nil) {
-                        NotificationCenter.default.post(name: .openSnapleSettings, object: nil)
+                    captureRow("Snaps Preferences…", symbol: "gearshape", shortcut: nil) {
+                        PreferencesWindow.shared.show(page: .screenshot)
                     }
                 }
             }
             .padding(14)
+        }
+    }
+
+    // MARK: - Clipboard
+
+    private var clipboardPane: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                section("History") {
+                    captureRow("Clipboard History", symbol: "doc.on.clipboard",
+                               shortcut: HotkeyManager.clipboard.label) {
+                        ClipWindowController.shared.toggle(fromStatusItem: true)
+                    }
+                    captureRow("Delete All History", symbol: "trash", shortcut: nil) {
+                        ClipStore.shared.confirmDeleteAll()
+                    }
+                    Text("\(clipStore.clips.count) clippings saved")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+
+                section("Recording") {
+                    Toggle(isOn: $clipPrefs.recordHistory) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Record clipboard history").font(.system(size: 11))
+                            Text("Copies made while off are not saved.")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                }
+
+                section("Settings") {
+                    captureRow("Clips Preferences…", symbol: "gearshape", shortcut: nil) {
+                        PreferencesWindow.shared.show(page: .copyClips)
+                    }
+                }
+            }
+            .padding(14)
+        }
+    }
+
+    private struct HomeCard: View {
+        let symbol: String
+        let title: String
+        let subtitle: String
+        let action: () -> Void
+        @State private var hovered = false
+
+        var body: some View {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    Image(systemName: symbol)
+                        .font(.system(size: 22))
+                        .frame(width: 36)
+                        .foregroundStyle(hovered ? Color.accentColor : .secondary)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title).font(.system(size: 14, weight: .bold))
+                        Text(subtitle)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 14).padding(.vertical, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(.regularMaterial))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(hovered ? Color.accentColor : .clear, lineWidth: 1.5)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
+            .onHover { hovered = $0 }
         }
     }
 
@@ -419,19 +537,21 @@ struct PanelView: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
-            Button {
-                Tiler.shared.retile()
-                refreshWindowCount()
-            } label: {
-                Label("Arrange now", systemImage: "arrow.triangle.2.circlepath")
-            }
-            .controlSize(.small)
+            if page == .organize {
+                Button {
+                    Tiler.shared.retile()
+                    refreshWindowCount()
+                } label: {
+                    Label("Arrange now", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .controlSize(.small)
 
-            Text(tab == .tabs
-                 ? "\(store.tabs.count) tabs"
-                 : (trusted ? "\(windowCount) windows" : "no access"))
-                .font(.system(size: 11))
-                .foregroundStyle(trusted ? Color.secondary : Color.orange)
+                Text(tab == .tabs
+                     ? "\(store.tabs.count) tabs"
+                     : (trusted ? "\(windowCount) windows" : "no access"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(trusted ? Color.secondary : Color.orange)
+            }
 
             Spacer()
 
@@ -444,7 +564,7 @@ struct PanelView: View {
                 Button("Reset to layout") { Tiler.shared.resetOrder() }
                 Button("Rescan tabs") { store.refresh() }
                 Divider()
-                Button("Quit vlote") { NSApp.terminate(nil) }
+                Button("Quit Vlote") { NSApp.terminate(nil) }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
@@ -460,14 +580,6 @@ struct PanelView: View {
         windowCount = WindowManager.tileableWindows().count
     }
 
-    private func frontmostApp() -> (id: String, name: String)? {
-        guard let app = NSWorkspace.shared.frontmostApplication,
-              let id = app.bundleIdentifier,
-              app.processIdentifier != ProcessInfo.processInfo.processIdentifier
-        else { return nil }
-        return (id, app.localizedName ?? id)
-    }
-
     @ViewBuilder
     private func section<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -475,29 +587,6 @@ struct PanelView: View {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
             content()
-        }
-    }
-
-    private func slider(_ label: String,
-                        value: Binding<CGFloat>,
-                        range: ClosedRange<CGFloat>,
-                        unit: String,
-                        isRatio: Bool = false,
-                        rebuild: Bool = false) -> some View {
-        HStack(spacing: 8) {
-            Text(label).font(.system(size: 11)).frame(width: 118, alignment: .leading)
-            Slider(value: Binding(
-                get: { Double(value.wrappedValue) },
-                set: {
-                    value.wrappedValue = CGFloat($0)
-                    if rebuild { Tiler.shared.applyPreset() } else { Tiler.shared.retile() }
-                }
-            ), in: Double(range.lowerBound)...Double(range.upperBound))
-            Text(isRatio ? "\(Int(value.wrappedValue * 100))\(unit)"
-                         : "\(Int(value.wrappedValue))\(unit)")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .frame(width: 34, alignment: .trailing)
         }
     }
 }

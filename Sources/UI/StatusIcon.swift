@@ -1,13 +1,36 @@
 import AppKit
 
-/// The menu bar glyph: the same main-plus-stack motif as the app icon.
+/// The menu bar glyph: the vlote logo, shipped as a template image so macOS
+/// recolours it for light, dark and the highlighted (clicked) state.
 ///
-/// Drawn in code rather than shipped as an asset so it stays crisp at any
-/// scale factor, and marked as a template image so macOS recolours it for
-/// light, dark and the highlighted (clicked) state automatically. Template
-/// images must be drawn in flat black — the system derives everything else
-/// from the alpha channel.
+/// Falls back to the drawn main-plus-stack glyph if the bundled PNGs are
+/// missing, so the menu bar never shows an empty icon.
 enum StatusIcon {
+
+    private static let iconSize = NSSize(width: 18, height: 14)
+
+    /// Loaded once. The 1x and 2x files are added as representations of one
+    /// 18x14 image, so Retina displays pick the sharp 36x28px bitmap.
+    private static let bundled: NSImage? = {
+        guard let low = Bundle.main.url(forResource: "StatusIcon", withExtension: "png"),
+              let high = Bundle.main.url(forResource: "StatusIcon@2x", withExtension: "png"),
+              let lowRep = NSImageRep(contentsOf: low),
+              let highRep = NSImageRep(contentsOf: high) else { return nil }
+        lowRep.size = iconSize
+        highRep.size = iconSize
+        let image = NSImage(size: iconSize)
+        image.addRepresentation(lowRep)
+        image.addRepresentation(highRep)
+        image.isTemplate = true
+        return image
+    }()
+
+    /// Always full strength (black template, macOS recolours it). The `active`
+    /// flag is kept for callers but does not change the icon look.
+    static func image(active: Bool) -> NSImage {
+        guard let logo = bundled else { return drawnGlyph(active: active) }
+        return logo
+    }
 
     /// Menu bar glyphs live in roughly an 18x18 box, with the drawn content a
     /// little shorter so it optically centres against the menu bar text.
@@ -15,7 +38,7 @@ enum StatusIcon {
 
     /// Filled while arranging, outlined while paused. A dimmed version of the
     /// same shape is easy to miss; a hollow one reads as "off" at a glance.
-    static func image(active: Bool) -> NSImage {
+    private static func drawnGlyph(active: Bool) -> NSImage {
         let image = NSImage(size: size, flipped: false) { _ in
             let gap: CGFloat = 2
             let radius: CGFloat = 1.6

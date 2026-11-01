@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+/// Screenshot preferences page. Sub-tabs sit in the pane content, not in the window bar.
 struct SettingsView: View {
     @AppStorage(PrefKey.copyToClipboard) private var copyToClipboard = true
     @AppStorage(PrefKey.autoSave) private var autoSave = true
@@ -17,93 +18,230 @@ struct SettingsView: View {
     @AppStorage(PrefKey.autoUpload) private var autoUpload = false
     @AppStorage(PrefKey.linkExpiryDays) private var linkExpiryDays = 0
 
+    @State private var tab: ScreenshotTab = .general
+
+    private enum ScreenshotTab: String, CaseIterable, Identifiable {
+        case general, shortcuts, cloud, privacy
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .general:   return "General"
+            case .shortcuts: return "Shortcuts"
+            case .cloud:     return "Cloud"
+            case .privacy:   return "Privacy"
+            }
+        }
+    }
+
     var body: some View {
-        TabView {
-            general.tabItem { Label("General", systemImage: "gearshape") }
-            shortcuts.tabItem { Label("Shortcuts", systemImage: "keyboard") }
-            cloud.tabItem { Label("Cloud", systemImage: "icloud") }
-            privacy.tabItem { Label("Privacy", systemImage: "hand.raised") }
+        SettingsPane {
+            SettingsSegmented(options: ScreenshotTab.allCases, label: { $0.title }, selection: $tab)
+            switch tab {
+            case .general:   generalPage
+            case .shortcuts: shortcutsPage
+            case .cloud:     cloudPage
+            case .privacy:   privacyPage
+            }
         }
-        .frame(width: 520, height: 420)
     }
 
-    private var general: some View {
-        Form {
-            Section("After capture") {
-                Toggle("Copy to clipboard", isOn: $copyToClipboard)
-                Toggle("Save to folder", isOn: $autoSave)
-                HStack {
-                    Text(saveDirectory).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Choose…") { chooseFolder() }
-                }
-                .disabled(!autoSave)
-                Picker("Format", selection: $imageFormat) {
-                    ForEach(ImageFormat.allCases) { Text($0.rawValue.uppercased()).tag($0.rawValue) }
-                }
-                Toggle("Show floating thumbnail", isOn: $showThumbnail)
-                Stepper("Dismiss after \(Int(thumbnailSeconds)) s", value: $thumbnailSeconds, in: 2...30)
+    // MARK: - General
+
+    private var generalPage: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SettingsSection("After capture") {
+                SettingsCard {
+                    SettingsRow(title: "Copy to clipboard") {
+                        Toggle("Copy to clipboard", isOn: $copyToClipboard)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                    SettingsDivider()
+                    SettingsRow(title: "Save to folder") {
+                        Toggle("Save to folder", isOn: $autoSave)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                    SettingsDivider()
+                    SettingsRow(title: "Folder") {
+                        HStack(spacing: 8) {
+                            Text(saveDirectory)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: 240, alignment: .trailing)
+                            Button("Choose…") { chooseFolder() }
+                        }
+                    }
+                    .disabled(!autoSave)
+                    SettingsDivider()
+                    SettingsRow(title: "Format") {
+                        Picker("Format", selection: $imageFormat) {
+                            ForEach(ImageFormat.allCases) { Text($0.rawValue.uppercased()).tag($0.rawValue) }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    SettingsDivider()
+                    SettingsRow(title: "Show floating thumbnail") {
+                        Toggle("Show floating thumbnail", isOn: $showThumbnail)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                    SettingsDivider()
+                    SettingsRow(title: "Dismiss after \(Int(thumbnailSeconds)) s") {
+                        Stepper("Dismiss after \(Int(thumbnailSeconds)) s", value: $thumbnailSeconds, in: 2...30)
+                            .labelsHidden()
+                    }
                     .disabled(!showThumbnail)
+                }
             }
-            Section("Capture") {
-                Toggle("Include mouse cursor", isOn: $includeCursor)
-                Toggle("Add shadow to window captures", isOn: $windowShadow)
-                Toggle("Play shutter sound", isOn: $playSound)
-            }
-        }
-        .formStyle(.grouped)
-    }
 
-    private var shortcuts: some View {
-        Form {
-            Section("Global shortcuts") {
-                ForEach(HotkeyAction.allCases) { HotkeyRow(action: $0) }
-            }
-            Section {
-                HStack {
-                    Text("Click a shortcut, then press the new keys. Esc cancels, ⌫ restores the default.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Reset All") { HotkeyAction.resetAll() }
+            SettingsSection("Capture") {
+                SettingsCard {
+                    SettingsRow(title: "Include mouse cursor") {
+                        Toggle("Include mouse cursor", isOn: $includeCursor)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                    SettingsDivider()
+                    SettingsRow(title: "Add shadow to window captures") {
+                        Toggle("Add shadow to window captures", isOn: $windowShadow)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                    SettingsDivider()
+                    SettingsRow(title: "Play shutter sound") {
+                        Toggle("Play shutter sound", isOn: $playSound)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
                 }
             }
         }
-        .formStyle(.grouped)
     }
 
-    private var cloud: some View {
-        Form {
-            Section("Account") { CloudSignInView().frame(maxWidth: .infinity, alignment: .leading) }
-            Section("Uploading") {
-                Toggle("Upload every capture automatically", isOn: $autoUpload)
-                Picker("Share links expire", selection: $linkExpiryDays) {
-                    Text("Never").tag(0); Text("After 1 day").tag(1); Text("After 7 days").tag(7); Text("After 30 days").tag(30)
+    // MARK: - Shortcuts
+
+    private var shortcutsPage: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SettingsSection("Global shortcuts") {
+                SettingsCard {
+                    let actions = HotkeyAction.allCases
+                    ForEach(actions.indices, id: \.self) { i in
+                        if i > 0 { SettingsDivider() }
+                        HotkeyRow(action: actions[i])
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                    }
                 }
-                Text("Nothing is uploaded unless you click Upload (or turn on automatic upload). Uploaded images are the final edited version, with redactions baked in. Anyone with a link can view that image until you stop sharing or it expires.")
-                    .font(.footnote).foregroundStyle(.secondary)
-                Button("Open Library…") { LibraryWindowController.shared.show() }
+            }
+
+            SettingsSection("Reset") {
+                SettingsCard {
+                    HStack {
+                        Text("Click a shortcut, then press the new keys. Esc cancels, ⌫ restores the default.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Reset All") { HotkeyAction.resetAll() }
+                    }
+                    .padding(14)
+                }
             }
         }
-        .formStyle(.grouped)
     }
 
-    private var privacy: some View {
-        Form {
-            Section("History") {
-                Toggle("Keep capture history on this Mac", isOn: $keepHistory)
-                Toggle("Make text inside screenshots searchable (on-device OCR)", isOn: $indexText)
-                Stepper("Delete after \(historyDays) days", value: $historyDays, in: 1...365)
+    // MARK: - Cloud
+
+    private var cloudPage: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SettingsSection("Account") {
+                SettingsCard {
+                    CloudSignInView()
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            SettingsSection("Uploading") {
+                SettingsCard {
+                    SettingsRow(title: "Upload every capture automatically") {
+                        Toggle("Upload every capture automatically", isOn: $autoUpload)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                    SettingsDivider()
+                    SettingsRow(title: "Share links expire") {
+                        Picker("Share links expire", selection: $linkExpiryDays) {
+                            Text("Never").tag(0)
+                            Text("After 1 day").tag(1)
+                            Text("After 7 days").tag(7)
+                            Text("After 30 days").tag(30)
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                    SettingsDivider()
+                    note("Nothing is uploaded unless you click Upload (or turn on automatic upload). Uploaded images are the final edited version, with redactions baked in. Anyone with a link can view that image until you stop sharing or it expires.")
+                    SettingsDivider()
+                    SettingsRow(title: "Library") {
+                        Button("Open Library…") { LibraryWindowController.shared.show() }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Privacy
+
+    private var privacyPage: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            SettingsSection("History") {
+                SettingsCard {
+                    SettingsRow(title: "Keep capture history on this Mac") {
+                        Toggle("Keep capture history on this Mac", isOn: $keepHistory)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                    SettingsDivider()
+                    SettingsRow(title: "Make text inside screenshots searchable (on-device OCR)") {
+                        Toggle("Make text inside screenshots searchable (on-device OCR)", isOn: $indexText)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                    SettingsDivider()
+                    SettingsRow(title: "Delete after \(historyDays) days") {
+                        Stepper("Delete after \(historyDays) days", value: $historyDays, in: 1...365)
+                            .labelsHidden()
+                    }
                     .disabled(!keepHistory)
-                Text("History keeps each original so edits stay re-openable. Redactions are applied to exported files only — turn history off if you capture sensitive content.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                    SettingsDivider()
+                    note("History keeps each original so edits stay re-openable. Redactions are applied to exported files only — turn history off if you capture sensitive content.")
+                }
             }
-            Section("Data") {
-                Text("Snaple has no analytics or tracking. It only contacts the network when you sign in to or use Snaple Cloud.")
-                    .font(.footnote).foregroundStyle(.secondary)
-                Button("Show History Folder in Finder") { NSWorkspace.shared.activateFileViewerSelecting([CaptureStore.shared.root]) }
+
+            SettingsSection("Data") {
+                SettingsCard {
+                    note("Snaple has no analytics or tracking. It only contacts the network when you sign in to or use Snaple Cloud.")
+                    SettingsDivider()
+                    SettingsRow(title: "History folder") {
+                        Button("Show History Folder in Finder") { NSWorkspace.shared.activateFileViewerSelecting([CaptureStore.shared.root]) }
+                    }
+                }
             }
         }
-        .formStyle(.grouped)
+    }
+
+    // MARK: - Helpers
+
+    private func note(_ text: String) -> some View {
+        Text(text)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func chooseFolder() {

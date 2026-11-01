@@ -27,19 +27,23 @@ enum ImageFormat: String, CaseIterable, Identifiable {
 
 /// Local-only settings. Nothing here is ever transmitted; there is no analytics SDK in the app.
 enum Preferences {
-    static var defaultSaveDirectory: String { NSString(string: "~/Pictures/Snaple").expandingTildeInPath }
+    static var defaultSaveDirectory: String {
+        (FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures"))
+            .appendingPathComponent("Snaple").path
+    }
 
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
             PrefKey.copyToClipboard: true,
             PrefKey.autoSave: true,
             PrefKey.saveDirectory: defaultSaveDirectory,
-            PrefKey.imageFormat: ImageFormat.png.rawValue,
+            PrefKey.imageFormat: ImageFormat.jpeg.rawValue,
             PrefKey.showThumbnail: true,
-            PrefKey.thumbnailSeconds: 8,
+            PrefKey.thumbnailSeconds: 3,
             PrefKey.includeCursor: false,
             PrefKey.windowShadow: true,
-            PrefKey.playSound: true,
+            PrefKey.playSound: false,
             PrefKey.keepHistory: true,
             PrefKey.historyDays: 30,
             PrefKey.indexText: true,
@@ -63,7 +67,7 @@ enum Preferences {
     static var autoUpload: Bool { d.bool(forKey: PrefKey.autoUpload) }
     /// 0 = links never expire.
     static var linkExpiryDays: Int? { let v = d.integer(forKey: PrefKey.linkExpiryDays); return v > 0 ? v : nil }
-    static var imageFormat: ImageFormat { ImageFormat(rawValue: d.string(forKey: PrefKey.imageFormat) ?? "") ?? .png }
+    static var imageFormat: ImageFormat { ImageFormat(rawValue: d.string(forKey: PrefKey.imageFormat) ?? "") ?? .jpeg }
     static var saveDirectoryURL: URL {
         URL(fileURLWithPath: d.string(forKey: PrefKey.saveDirectory) ?? defaultSaveDirectory, isDirectory: true)
     }

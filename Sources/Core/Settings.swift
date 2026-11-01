@@ -44,10 +44,9 @@ final class Settings: ObservableObject {
     @Published var gap: CGFloat            { didSet { d.set(Double(gap), forKey: "gap") } }
     @Published var outerGap: CGFloat       { didSet { d.set(Double(outerGap), forKey: "outerGap") } }
     @Published var masterRatio: CGFloat    { didSet { d.set(Double(masterRatio), forKey: "masterRatio") } }
-    @Published var minWindowSize: CGFloat  { didSet { d.set(Double(minWindowSize), forKey: "minWindowSize") } }
-    @Published var floatedApps: [String]   { didSet { d.set(floatedApps, forKey: "floatedApps") } }
     @Published var fullPageSetupDone: Bool { didSet { d.set(fullPageSetupDone, forKey: "fullPageSetupDone") } }
 
+    /// Migration source only: the old Organize ignore list. UniversalIgnore reads it once.
     /// Apps that are worse off tiled: modal-heavy utilities, media players,
     /// anything whose windows are deliberately small. Users can edit this list.
     static let defaultFloated = [
@@ -73,8 +72,6 @@ final class Settings: ObservableObject {
             "gap": 2.0,
             "outerGap": 2.0,
             "masterRatio": 0.6,
-            "minWindowSize": 220.0,
-            "floatedApps": Settings.defaultFloated,
             "fullPageSetupDone": false,
         ])
         autoTile      = d.bool(forKey: "autoTile")
@@ -83,21 +80,6 @@ final class Settings: ObservableObject {
         gap           = CGFloat(d.double(forKey: "gap"))
         outerGap      = CGFloat(d.double(forKey: "outerGap"))
         masterRatio   = CGFloat(d.double(forKey: "masterRatio"))
-        minWindowSize = CGFloat(d.double(forKey: "minWindowSize"))
-        floatedApps   = d.stringArray(forKey: "floatedApps") ?? Settings.defaultFloated
         fullPageSetupDone = d.bool(forKey: "fullPageSetupDone")
-    }
-
-    func isFloated(bundleID: String?) -> Bool {
-        guard let bundleID else { return false }
-        return floatedApps.contains(bundleID)
-    }
-
-    func toggleFloat(bundleID: String) {
-        if let i = floatedApps.firstIndex(of: bundleID) {
-            floatedApps.remove(at: i)
-        } else {
-            floatedApps.append(bundleID)
-        }
     }
 }

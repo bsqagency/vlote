@@ -22,6 +22,7 @@ SOURCES=(
     Sources/UI/*.swift
     Sources/Snaple/*/*.swift    # Snaple (screenshot) feature set, folder structure kept
     Sources/FullPage/*.swift    # Full-page browser capture (scroll and stitch)
+    Sources/Clipboard/*.swift   # Clipboard history (store, preferences)
     Sources/main.swift          # must be last; swiftc treats it as the entry point
 )
 
@@ -56,6 +57,8 @@ fi
 echo "==> Assembling bundle"
 cp Resources/Info.plist "${BUNDLE}/Contents/Info.plist"
 if [[ -f Resources/Macnizer.icns ]]; then cp Resources/Macnizer.icns "${RES_DIR}/"; fi
+if [[ -f Resources/StatusIcon.png ]]; then cp Resources/StatusIcon.png "${RES_DIR}/"; fi
+if [[ -f Resources/StatusIcon@2x.png ]]; then cp Resources/StatusIcon@2x.png "${RES_DIR}/"; fi
 
 # Signing, in priority order:
 #

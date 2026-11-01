@@ -49,21 +49,21 @@ ln -s /Applications "$STAGE/Applications"
 
 if $RELEASE; then
 cat > "$STAGE/READ ME.txt" <<'TXT'
-vlote
+Vlote
 ========
 
-1. Drag vlote onto the Applications folder, then open it normally.
+1. Drag Vlote onto the Applications folder, then open it normally.
 
 2. Grant Accessibility access when asked.
-   System Settings > Privacy & Security > Accessibility > switch vlote on.
+   System Settings > Privacy & Security > Accessibility > switch Vlote on.
    macOS does not let ANY app move windows without this, so until it is granted
-   vlote can see your windows but cannot arrange them. The menu bar panel
+   Vlote can see your windows but cannot arrange them. The menu bar panel
    shows an orange warning until then.
 
 3. Optional - the Tabs pane asks for Automation access per browser the first
-   time you use it. vlote reads only tab titles and URLs, never page content.
+   time you use it. Vlote reads only tab titles and URLs, never page content.
 
-vlote lives in the menu bar and has no Dock icon. The glyph is filled while
+Vlote lives in the menu bar and has no Dock icon. The glyph is filled while
 arranging and hollow while paused.
 
     Option-Command-T        pause / resume arranging
@@ -78,13 +78,13 @@ Requires macOS 14 or later. Universal: Apple Silicon and Intel.
 TXT
 else
 cat > "$STAGE/READ ME FIRST.txt" <<'TXT'
-vlote
+Vlote
 ========
 
-1. Drag vlote onto the Applications folder.
+1. Drag Vlote onto the Applications folder.
 
 2. IMPORTANT - the first launch needs a right-click.
-   In Applications, RIGHT-CLICK vlote and choose "Open", then click
+   In Applications, RIGHT-CLICK Vlote and choose "Open", then click
    "Open" again in the dialog. Double-clicking will NOT work the first time:
    this build is not notarised by Apple, so macOS says the developer "cannot
    be verified". After the first right-click-Open it launches normally.
@@ -93,12 +93,12 @@ vlote
        xattr -dr com.apple.quarantine /Applications/vlote.app
 
 3. Grant Accessibility access when asked.
-   System Settings > Privacy & Security > Accessibility > switch vlote on.
+   System Settings > Privacy & Security > Accessibility > switch Vlote on.
 
 4. Optional - the Tabs pane asks for Automation access per browser.
-   vlote reads only tab titles and URLs, never page content.
+   Vlote reads only tab titles and URLs, never page content.
 
-vlote lives in the menu bar and has no Dock icon.
+Vlote lives in the menu bar and has no Dock icon.
 
     Option-Command-T        pause / resume arranging
     Option-Command-Space    next layout
@@ -114,7 +114,7 @@ fi
 
 echo "==> Creating $DMG"
 rm -f "$DMG"
-hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO -quiet "$DMG"
+hdiutil create -volname "Vlote" -srcfolder "$STAGE" -ov -format UDZO -quiet "$DMG"
 rm -rf "$STAGE"
 
 if $RELEASE; then

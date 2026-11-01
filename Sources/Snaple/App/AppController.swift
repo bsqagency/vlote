@@ -168,7 +168,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         add("Open Last Capture in Editor", #selector(openLast))
         add("Show Captures Folder", #selector(showFolder))
         menu.addItem(.separator())
-        add("Screenshot Settings…", #selector(showSettings))
+        add("Snaps Settings…", #selector(showSettings))
         menu.addItem(NSMenuItem(title: "Quit Snaple", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         return menu
     }

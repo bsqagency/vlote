@@ -65,7 +65,7 @@ To launch at login: System Settings › General › Login Items › **+**, and p
 ./package.sh --release  # Developer ID + notarised: opens with a double-click
 ```
 
-Both produce `dist/vlote-1.0.dmg` — universal, with an Applications symlink
+Both produce `dist/vlote-1.0.1.dmg` — universal, with an Applications symlink
 and install notes.
 
 ## Publishing
